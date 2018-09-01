@@ -265,6 +265,7 @@ public class MemberController extends BaseController {
 		
 		member.setLastLogin(new Date());
 		memberService.update(member);
+		//req.getSession(true).setAttribute(name, value);
 		
 		String token = req.getSession(true).getId();
 		//req.getSession().setAttribute("member:" + sessionId, member);
@@ -272,7 +273,7 @@ public class MemberController extends BaseController {
 		Map<String, String> retMap = new HashMap<String, String>();
 		retMap.put("token", token);
 		resp.setData(retMap);
-		this.addToCache(token, member);
+		this.addToCache(req, token, member);
 		resp.setMessage("登录成功");
 		return resp;
 	}

@@ -4,8 +4,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.annotation.Resource;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -19,13 +23,38 @@ public class BaseController {
 	@Resource
 	private MemberService memberService;
 	
+	private static final String TOKEN_KEY = "X-Token";
+	private static final String SESSION_KEY = "dapp_login_user";
 	
 	protected static Map<String, Member> memberMap = new HashMap<String, Member>();
+	private static final Logger logger = LoggerFactory.getLogger(BaseController.class);
 	
 	public Member getLoginMember(HttpServletRequest request) {
-		String token = request.getHeader("X-Token");
+		HttpSession session = request.getSession();
+		Member mem = null;
+		if (session != null) {
+			mem = (Member)session.getAttribute(SESSION_KEY);
+		}
+		if (mem != null) {
+		//	logger.info("Get user from session, sessionid: {}", session.getId());
+			return mem;
+		}
+		
+		String token = request.getHeader(TOKEN_KEY);
 		if (StringUtils.isEmpty(token)) {
-			return null;
+			//token = request.getCookies().
+			Cookie[] cookies = request.getCookies();
+			if (cookies != null) {
+				for (Cookie cookie: cookies) {
+					if (cookie.getName().equals(TOKEN_KEY)) {
+						token = cookie.getValue();
+						break;
+					}
+				}
+			}
+			if (StringUtils.isEmpty(token)) {
+				return null;
+			}
 		}
 		return memberMap.get(token);
 		
@@ -45,11 +74,15 @@ public class BaseController {
 	}
 	
 	public void requestLogout(HttpServletRequest request){
-		String token = request.getHeader("X-Token");
+		String token = request.getHeader(TOKEN_KEY);
+		request.getSession().invalidate();
 		memberMap.remove(token);
 	}
 	
-	public void addToCache(String token, Member member) {
+	public void addToCache(HttpServletRequest req, String token, Member member) {
+		HttpSession session = req.getSession(true);
+		session.setAttribute(SESSION_KEY, member);
+	//	logger.info("put member to session: {}", session.getId());
 		memberMap.put(token, member);
 	}
 	

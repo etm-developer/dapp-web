@@ -122,4 +122,9 @@ public class DappServiceImpl implements DappService {
 		return dappMapper.selectCount(param);
 	}
 
+	@Override
+	public List<Dapp> getList(DappParam param) {
+		return dappMapper.selectList(param);
+	}
 }
+

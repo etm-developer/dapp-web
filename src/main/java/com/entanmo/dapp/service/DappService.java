@@ -1,5 +1,7 @@
 package com.entanmo.dapp.service;
 
+import java.util.List;
+
 import com.entanmo.dapp.param.DappParam;
 import com.entanmo.dapp.po.Dapp;
 import com.entanmo.dapp.vo.PaginationResult;
@@ -54,5 +56,7 @@ public interface DappService {
 	public Dapp getDappByPrimaryKey(Integer dappId);
 
 	public int getCount(DappParam param);
+	
+	public List<Dapp> getList(DappParam param);
 
 }

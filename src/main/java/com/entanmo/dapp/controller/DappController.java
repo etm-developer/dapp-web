@@ -18,6 +18,7 @@ import java.util.zip.ZipInputStream;
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -44,7 +45,6 @@ import com.entanmo.dapp.po.EtmNode;
 import com.entanmo.dapp.po.Member;
 import com.entanmo.dapp.service.DappService;
 import com.entanmo.dapp.service.EtmNodeService;
-import com.entanmo.dapp.util.HttpUtils;
 import com.entanmo.dapp.vo.BaseResponse;
 import com.entanmo.dapp.vo.PaginationResult;
 import com.etm.sdk.EtmResult;
@@ -124,6 +124,7 @@ public class DappController extends BaseController {
 		if (!file.isEmpty()) {
 			try {
 				// 转存文件
+				
 				file.transferTo(new File(savePath));
 				// readZipFile(savePath);
 				return true;
@@ -206,6 +207,22 @@ public class DappController extends BaseController {
 				resp.setMessage("请设置dapp 开发者");
 				return resp;
 			}
+		}
+		DappParam param = new DappParam();
+		param.setCreatorId(dapp.getCreatorId());
+		param.setName(dapp.getName());
+		if (dappService.getCount(param) > 0) {
+			resp.setResp(ResponseEnum.BAD_PARAM);
+			resp.setMessage("你已经创建过同名的dapp了");
+			return resp;
+		}
+		
+		param.setName(null);
+		param.setLink(dapp.getLink());
+		if (dappService.getCount(param) > 0) {
+			resp.setResp(ResponseEnum.BAD_PARAM);
+			resp.setMessage("你已经创建过同链接的dapp了");
+			return resp;
 		}
 
 		Date now = new Date();
@@ -416,9 +433,16 @@ public class DappController extends BaseController {
 				}else {
 					logger.info("file already exists, file: {}", dupPath);
 				}
-				
-				File destFile = new File(destDir, originalName);				
-				saveFile(multipartFile, destFile.getAbsolutePath());
+				File destFile = new File(destDir, originalName);
+				try {
+					FileUtils.copyFile(dupFile, destFile);
+				}catch (Exception e) {
+					resp.setCode(ResponseEnum.LOGIC_ERROR.getCode());
+					resp.setMessage("复制dapp zip 文件失败");
+					logger.error("copy dapp zip file fail:{}", dupFile.getPath());
+					return resp;
+				}
+				// saveFile(multipartFile, destFile.getAbsolutePath());
 				resourceUrl = resourceUrl + "/" + originalName;
 				break;
 			}
@@ -874,7 +898,7 @@ public class DappController extends BaseController {
 					}
 					JSONObject json = null;
 					try {
-						new JSONObject(buffer.toString());
+						json = new JSONObject(buffer.toString());
 					} catch (Exception e) {
 						logger.error("not a valid json file, file:{}, name:{}", file, name, e);
 						return null;
