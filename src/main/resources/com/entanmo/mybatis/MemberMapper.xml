@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.entanmo.dapp.mapper.MemberMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.entanmo.dapp.po.Member">
+		<!---->
+		<result column="memberId" property="memberId"  />
+		<!---->
+		<result column="account" property="account"  />
+		<!---->
+		<result column="password" property="password"  />
+		<!---->
+		<result column="phone" property="phone"  />
+		<!---->
+		<result column="email" property="email"  />
+		<!---->
+		<result column="userType" property="userType"  />
+		
+		<result column="state" property="state"  />
+
+		<!---->
+		<result column="createTime" property="createTime"  />
+		<!---->
+		<result column="lastLogin" property="lastLogin"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 memberId,account,password,phone,email,userType,state,createTime,lastLogin
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="memberId != null">
+				 and  memberId = #{memberId}
+			</if>
+			<if test="account != null and account!=''">
+				 and  account = #{account}
+			</if>
+			<if test="password != null and password!=''">
+				 and  password = #{password}
+			</if>
+			<if test="phone != null and phone!=''">
+				 and  phone = #{phone}
+			</if>
+			<if test="email != null and email!=''">
+				 and  email = #{email}
+			</if>
+			<if test="userType != null">
+				 and  userType = #{userType}
+			</if>
+			<if test="state != null">
+				 and  state = #{state}
+			</if>
+			<if test="createTime != null">
+				 and  createTime = #{createTime}
+			</if>
+			<if test="lastLogin != null">
+				 and  lastLogin = #{lastLogin}
+			</if>
+	</sql>
+	<!-- 通用条件列-->
+	<sql id="base_condition">
+	 <where> <include refid="base_condition_filed" />	 </where>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="accountFuzzy!= null  and accountFuzzy!=''">
+				 and  account like concat('%', #{accountFuzzy}, '%')
+			</if>
+			<if test="passwordFuzzy!= null  and passwordFuzzy!=''">
+				 and  password like concat('%', #{passwordFuzzy}, '%')
+			</if>
+			<if test="phoneFuzzy!= null  and phoneFuzzy!=''">
+				 and  phone like concat('%', #{phoneFuzzy}, '%')
+			</if>
+			<if test="emailFuzzy!= null  and emailFuzzy!=''">
+				 and  email like concat('%', #{emailFuzzy}, '%')
+			</if>
+			<if test="createTimeStart!= null and createTimeStart!=''">
+				 <![CDATA[ and  createTime>=str_to_date('${createTimeStart}', '%Y-%m-%d') ]]>
+			</if>
+			<if test="createTimeEnd!= null and createTimeEnd!=''">
+				 <![CDATA[ and  createTime< date_sub(str_to_date('${createTimeEnd}','%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+			<if test="lastLoginStart!= null and lastLoginStart!=''">
+				 <![CDATA[ and  lastLogin>=str_to_date('${lastLoginStart}', '%Y-%m-%d') ]]>
+			</if>
+			<if test="lastLoginEnd!= null and lastLoginEnd!=''">
+				 <![CDATA[ and  lastLogin< date_sub(str_to_date('${lastLoginEnd}','%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+	 </where>
+	</sql>
+
+	<!--删除：根据条件删除-->
+	<delete id="delete" parameterType="java.lang.Integer">
+		 DELETE FROM member <include refid="base_condition" />
+	</delete>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.entanmo.dapp.po.Member" useGeneratedKeys="true" keyProperty="memberId">
+		 INSERT INTO member
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="memberId != null">
+				 memberId,
+			</if>
+			<if test="account != null">
+				 account,
+			</if>
+			<if test="password != null">
+				 password,
+			</if>
+			<if test="phone != null">
+				 phone,
+			</if>
+			<if test="email != null">
+				 email,
+			</if>
+			<if test="userType != null">
+				 userType,
+			</if>
+			<if test="state != null">
+				 state,
+			</if>
+			<if test="createTime != null">
+				 createTime,
+			</if>
+			<if test="lastLogin != null">
+				 lastLogin,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="memberId!=null">
+				 #{memberId},
+			</if>
+			<if test="account!=null">
+				 #{account},
+			</if>
+			<if test="password!=null">
+				 #{password},
+			</if>
+			<if test="phone!=null">
+				 #{phone},
+			</if>
+			<if test="email!=null">
+				 #{email},
+			</if>
+			<if test="userType!=null">
+				 #{userType},
+			</if>
+			<if test="state !=null">
+				 #{state},
+			</if>
+			<if test="createTime!=null">
+				 #{createTime},
+			</if>
+			<if test="lastLogin!=null">
+				 #{lastLogin},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+		<insert id="insertBatch" parameterType="com.entanmo.dapp.po.Member">
+		 INSERT INTO member(memberId,account,password,phone,email,userType,state,createTime,lastLogin)values
+			 <foreach collection="list" item="item" separator=",">
+			 (
+			 #{item.memberId},#{item.account},#{item.password},#{item.phone},#{item.email},#{item.userType},#{item.state},#{item.createTime},#{item.lastLogin}
+			 )
+			 </foreach>
+		</insert>
+
+	<!-- 修 改-->
+	<update id="update" parameterType="com.entanmo.dapp.po.Member">
+		 UPDATE member
+ 		 <set> 
+			<if test="account != null">
+				 account = #{account},
+			</if>
+			<if test="password != null">
+				 password = #{password},
+			</if>
+			<if test="phone != null">
+				 phone = #{phone},
+			</if>
+			<if test="email != null">
+				 email = #{email},
+			</if>
+			<if test="userType != null">
+				 userType = #{userType},
+			</if>
+			<if test="state != null">
+				 state = #{state},
+			</if>
+			<if test="createTime != null">
+				 createTime = #{createTime},
+			</if>
+			<if test="lastLogin != null">
+				 lastLogin = #{lastLogin},
+			</if>
+ 		 </set>
+ 		 where memberId = #{memberId}
+	</update>
+
+	<!-- 根据PrimaryKey删除-->
+	<delete id="deleteByPrimaryKey">
+		delete from member where memberId=#{memberId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByPrimaryKey" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from member where memberId=#{memberId}
+	</select>
+	
+	<select id="selectByAccount" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from member where account=#{account}
+	</select>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM member <include refid="query_condition" />
+		 <if test="orderBy!=null">
+			 order by ${orderBy}
+		 </if>
+		 <if test="page!=null">
+			 limit #{page.start},#{page.pageSize}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM member <include refid="query_condition" />
+	</select>
+
+</mapper>

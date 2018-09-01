@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.entanmo.dapp.mapper.DappMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.entanmo.dapp.po.Dapp">
+		<!---->
+		<result column="dappId" property="dappId"  />
+		<!---->
+		<result column="creatorId" property="creatorId"  />
+		<!---->
+		<result column="transactionId" property="transactionId"  />
+		<!---->
+		<result column="name" property="name"  />
+		<!---->
+		<result column="category" property="category"  />
+		<!---->
+		<result column="description" property="description"  />
+		<!---->
+		<result column="link" property="link"  />
+		<!---->
+		<result column="delegates" property="delegates"  />
+		<!---->
+		<result column="secrets" property="secrets"  />
+		<!---->
+		<result column="unlockDelegates" property="unlockDelegates"  />
+		<!--0:created, 1: registered, 2:installed, 3:launched, 4:stoped-->
+		<result column="state" property="state"  />
+		
+		<result column="icon" property="icon"  />
+		<result column="tags" property="tags"  />
+		<!---->
+		<result column="createTime" property="createTime"  />
+		<!---->
+		<result column="updateTime" property="updateTime"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 dappId,creatorId,transactionId,name,category,description,link,delegates,secrets,unlockDelegates,state,icon,tags,createTime,updateTime
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="dappId != null">
+				 and  dappId = #{dappId}
+			</if>
+			<if test="creatorId != null">
+				 and  creatorId = #{creatorId}
+			</if>
+			<if test="transactionId != null and transactionId!=''">
+				 and  transactionId = #{transactionId}
+			</if>
+			<if test="name != null and name!=''">
+				 and  name = #{name}
+			</if>
+			<if test="category != null">
+				 and  category = #{category}
+			</if>
+			<if test="description != null and description!=''">
+				 and  description = #{description}
+			</if>
+			<if test="link != null and link!=''">
+				 and  link = #{link}
+			</if>
+			<if test="delegates != null and delegates!=''">
+				 and  delegates = #{delegates}
+			</if>
+			<if test="secrets != null and secrets!=''">
+				 and  secrets = #{secrets}
+			</if>
+			<if test="unlockDelegates != null">
+				 and  unlockDelegates = #{unlockDelegates}
+			</if>
+			<if test="state != null">
+				 and  state = #{state}
+			</if>
+			<if test="icon != null">
+				 and  icon = #{icon}
+			</if>
+			<if test="tags != null">
+				 and  tags = #{tags}
+			</if>
+			<if test="createTime != null">
+				 and  createTime = #{createTime}
+			</if>
+			<if test="updateTime != null">
+				 and  updateTime = #{updateTime}
+			</if>
+	</sql>
+	<!-- 通用条件列-->
+	<sql id="base_condition">
+	 <where> <include refid="base_condition_filed" />	 </where>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="transactionIdFuzzy!= null  and transactionIdFuzzy!=''">
+				 and  transactionId like concat('%', #{transactionIdFuzzy}, '%')
+			</if>
+			<if test="nameFuzzy!= null  and nameFuzzy!=''">
+				 and  name like concat('%', #{nameFuzzy}, '%')
+			</if>
+			<if test="descriptionFuzzy!= null  and descriptionFuzzy!=''">
+				 and  description like concat('%', #{descriptionFuzzy}, '%')
+			</if>
+			<if test="linkFuzzy!= null  and linkFuzzy!=''">
+				 and  link like concat('%', #{linkFuzzy}, '%')
+			</if>
+			<if test="delegatesFuzzy!= null  and delegatesFuzzy!=''">
+				 and  delegates like concat('%', #{delegatesFuzzy}, '%')
+			</if>
+			<if test="secretsFuzzy!= null  and secretsFuzzy!=''">
+				 and  secrets like concat('%', #{secretsFuzzy}, '%')
+			</if>
+			<if test="createTimeStart!= null and createTimeStart!=''">
+				 <![CDATA[ and  createTime>=str_to_date('${createTimeStart}', '%Y-%m-%d') ]]>
+			</if>
+			<if test="createTimeEnd!= null and createTimeEnd!=''">
+				 <![CDATA[ and  createTime< date_sub(str_to_date('${createTimeEnd}','%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+			<if test="updateTimeStart!= null and updateTimeStart!=''">
+				 <![CDATA[ and  updateTime>=str_to_date('${updateTimeStart}', '%Y-%m-%d') ]]>
+			</if>
+			<if test="updateTimeEnd!= null and updateTimeEnd!=''">
+				 <![CDATA[ and  updateTime< date_sub(str_to_date('${updateTimeEnd}','%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+	 </where>
+	</sql>
+
+	<!--删除：根据条件删除-->
+	<delete id="delete" parameterType="java.lang.Integer">
+		 DELETE FROM dapp <include refid="base_condition" />
+	</delete>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.entanmo.dapp.po.Dapp" useGeneratedKeys="true" keyProperty="dappId">
+		 INSERT INTO dapp
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="dappId != null">
+				 dappId,
+			</if>
+			<if test="creatorId != null">
+				 creatorId,
+			</if>
+			<if test="transactionId != null">
+				 transactionId,
+			</if>
+			<if test="name != null">
+				 name,
+			</if>
+			<if test="category != null">
+				 category,
+			</if>
+			<if test="description != null">
+				 description,
+			</if>
+			<if test="link != null">
+				 link,
+			</if>
+			<if test="delegates != null">
+				 delegates,
+			</if>
+			<if test="secrets != null">
+				 secrets,
+			</if>
+			<if test="unlockDelegates != null">
+				 unlockDelegates,
+			</if>
+			<if test="state != null">
+				 state,
+			</if>
+			<if test="icon != null">
+				 icon,
+			</if>
+			<if test="tags != null">
+				 tags,
+			</if>
+			<if test="createTime != null">
+				 createTime,
+			</if>
+			<if test="updateTime != null">
+				 updateTime,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="dappId!=null">
+				 #{dappId},
+			</if>
+			<if test="creatorId!=null">
+				 #{creatorId},
+			</if>
+			<if test="transactionId!=null">
+				 #{transactionId},
+			</if>
+			<if test="name!=null">
+				 #{name},
+			</if>
+			<if test="category!=null">
+				 #{category},
+			</if>
+			<if test="description!=null">
+				 #{description},
+			</if>
+			<if test="link!=null">
+				 #{link},
+			</if>
+			<if test="delegates!=null">
+				 #{delegates},
+			</if>
+			<if test="secrets!=null">
+				 #{secrets},
+			</if>
+			<if test="unlockDelegates!=null">
+				 #{unlockDelegates},
+			</if>
+			<if test="state!=null">
+				 #{state},
+			</if>
+			<if test="icon !=null">
+				 #{icon},
+			</if>
+			<if test="tags !=null">
+				 #{tags},
+			</if>
+			<if test="createTime!=null">
+				 #{createTime},
+			</if>
+			<if test="updateTime!=null">
+				 #{updateTime},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+		<insert id="insertBatch" parameterType="com.entanmo.dapp.po.Dapp">
+		 INSERT INTO dapp(dappId,creatorId,transactionId,name,category,description,link,delegates,secrets,unlockDelegates,state,icon, tags,createTime,updateTime)values
+			 <foreach collection="list" item="item" separator=",">
+			 (
+			 #{item.dappId},#{item.creatorId},#{item.transactionId},#{item.name},#{item.category},#{item.description},#{item.link},#{item.delegates},#{item.secrets},#{item.unlockDelegates},#{item.state},#{item.icon},#{item.tags},#{item.createTime},#{item.updateTime}
+			 )
+			 </foreach>
+		</insert>
+
+	<!-- 修 改-->
+	<update id="update" parameterType="com.entanmo.dapp.po.Dapp">
+		 UPDATE dapp
+ 		 <set>
+			<if test="creatorId != null">
+				 creatorId = #{creatorId},
+			</if>
+			<if test="transactionId != null">
+				 transactionId = #{transactionId},
+			</if>
+			<if test="name != null">
+				 name = #{name},
+			</if>
+			<if test="category != null">
+				 category = #{category},
+			</if>
+			<if test="description != null">
+				 description = #{description},
+			</if>
+			<if test="link != null">
+				 link = #{link},
+			</if>
+			<if test="delegates != null">
+				 delegates = #{delegates},
+			</if>
+			<if test="secrets != null">
+				 secrets = #{secrets},
+			</if>
+			<if test="unlockDelegates != null">
+				 unlockDelegates = #{unlockDelegates},
+			</if>
+			<if test="state != null">
+				 state = #{state},
+			</if>
+			<if test="icon != null">
+				 icon = #{icon},
+			</if>
+			<if test="tags != null">
+				 tags = #{tags},
+			</if>
+			<if test="createTime != null">
+				 createTime = #{createTime},
+			</if>
+			<if test="updateTime != null">
+				 updateTime = #{updateTime},
+			</if>
+ 		 </set>
+ 		 where dappId = #{dappId}
+	</update>
+
+	<!-- 根据PrimaryKey删除-->
+	<delete id="deleteByPrimaryKey">
+		delete from dapp where dappId=#{dappId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByPrimaryKey" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from dapp where dappId=#{dappId}
+	</select>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM dapp <include refid="query_condition" />
+		 <if test="orderBy!=null">
+			 order by ${orderBy}
+		 </if>
+		 <if test="page!=null">
+			 limit #{page.start},#{page.pageSize}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM dapp <include refid="query_condition" />
+	</select>
+
+</mapper>
