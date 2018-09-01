@@ -6,6 +6,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -59,10 +61,10 @@ public class DappController extends BaseController {
 
 	@Autowired
 	private DappService dappService;
-	
+
 	@Autowired
 	private EtmNodeService etmNodeService;
-	
+
 	@Autowired
 	private DappHttpApi dappHttpApi;
 
@@ -73,16 +75,6 @@ public class DappController extends BaseController {
 
 	@Value("#{config['dapp.url.prefix']}")
 	private String linkPrefix = "http://resources.entanmo.com/dapp/uploads";
-
-	@RequestMapping(path = "/putDapp.do")
-	@ResponseBody
-	public BaseResponse putDapp(HttpServletRequest req, String name, String description) throws Exception {
-		String content = HttpUtils.readPostContent(req);
-		BaseResponse response = new BaseResponse();
-		response.setCode(ResponseEnum.SUCCESS.getCode());
-		response.setData(content);
-		return response;
-	}
 
 	/**
 	 * 
@@ -110,7 +102,7 @@ public class DappController extends BaseController {
 		param.setPageNo(pageNo);
 		param.setPageSize(pageSize);
 		param.setState(state);
-		if (!StringUtils.isEmpty(name)){
+		if (!StringUtils.isEmpty(name)) {
 			param.setNameFuzzy(name);
 		}
 		param.setCreatorId(creatorId);
@@ -142,80 +134,112 @@ public class DappController extends BaseController {
 		}
 		return false;
 	}
-	
+
 	@RequestMapping("/create.do")
 	@ResponseBody
 	public BaseResponse create(HttpServletRequest request, Dapp dapp) {
 		BaseResponse resp = new BaseResponse();
-		
-		if (StringUtils.isEmpty(dapp.getName())){
+
+		Member loginUser = getLoginMember(request);
+		if (loginUser == null) {
+			resp.setResp(ResponseEnum.NOT_LOGIN);
+			return resp;
+		}
+
+		if (loginUser.getUserType() == MemberTypeEnum.PROVIDER.getType()) {
+			resp.setResp(ResponseEnum.NO_RIGHTS);
+			return resp;
+		}
+
+		if (StringUtils.isEmpty(dapp.getName())) {
 			resp.setResp(ResponseEnum.BAD_PARAM);
 			resp.setMessage("名称不能为空");
 			return resp;
 		}
-		
-		if (StringUtils.isEmpty(dapp.getDelegates())){
+
+		if (StringUtils.isEmpty(dapp.getDelegates())) {
 			resp.setResp(ResponseEnum.BAD_PARAM);
 			resp.setMessage("delegate列表不能为空");
 			return resp;
 		}
-		
-		if (StringUtils.isEmpty(dapp.getSecrets())){
+
+		if (StringUtils.isEmpty(dapp.getSecrets())) {
 			resp.setResp(ResponseEnum.BAD_PARAM);
 			resp.setMessage("delegate主密码不能为空");
 			return resp;
 		}
-		
+
 		int len = dapp.getDelegates().split(",").length;
-		if (len < 5){
+		if (len < 5) {
 			resp.setResp(ResponseEnum.BAD_PARAM);
 			resp.setMessage("delegate数量至少为5");
 			return resp;
 		}
-		if (dapp.getSecrets().split(",").length != len){
+		if (dapp.getSecrets().split(",").length != len) {
 			resp.setResp(ResponseEnum.BAD_PARAM);
 			resp.setMessage("delegate数量和主密码数量必须一致");
 			return resp;
 		}
-		
-		if (dapp.getUnlockDelegates() == null || dapp.getUnlockDelegates() > len ){
+
+		if (dapp.getUnlockDelegates() == null || dapp.getUnlockDelegates() > len) {
 			resp.setResp(ResponseEnum.BAD_PARAM);
 			resp.setMessage("交易认可需要人数无效或超过delegate数量");
 			return resp;
 		}
-		
-		if (StringUtils.isEmpty(dapp.getLink())){
+
+		if (StringUtils.isEmpty(dapp.getLink())) {
 			resp.setResp(ResponseEnum.BAD_PARAM);
 			resp.setMessage("请上传代码文件");
 			return resp;
 		}
-		
-		if (StringUtils.isEmpty(dapp.getIcon())){
+
+		if (StringUtils.isEmpty(dapp.getIcon())) {
 			resp.setResp(ResponseEnum.BAD_PARAM);
 			resp.setMessage("请上传图标文件");
 			return resp;
 		}
-		
+		if (dapp.getCreatorId() == null) {
+			if (loginUser.getUserType() == MemberTypeEnum.DEVELOPER.getType()) {
+				dapp.setCreatorId(loginUser.getMemberId());
+			} else {
+				resp.setResp(ResponseEnum.BAD_PARAM);
+				resp.setMessage("请设置dapp 开发者");
+				return resp;
+			}
+		}
+
 		Date now = new Date();
 		dapp.setCreateTime(now);
 		dapp.setUpdateTime(now);
+
 		try {
 			dappService.add(dapp);
-		}catch (Exception e){
+		} catch (Exception e) {
 			logger.error("add dapp fail", e);
 		}
 		resp.setResp(ResponseEnum.SUCCESS);
 		resp.setData(dapp.getDappId());
 		return resp;
 	}
-	
+
 	@RequestMapping("/update.do")
 	@ResponseBody
 	public BaseResponse update(HttpServletRequest request, Dapp dapp) {
 		BaseResponse resp = new BaseResponse();
-		
+
+		Member loginUser = getLoginMember(request);
+		if (loginUser == null) {
+			resp.setResp(ResponseEnum.NOT_LOGIN);
+			return resp;
+		}
+
+		if (loginUser.getUserType() == MemberTypeEnum.PROVIDER.getType()) {
+			resp.setResp(ResponseEnum.NO_RIGHTS);
+			return resp;
+		}
+
 		Integer dappId = dapp.getDappId();
-		
+
 		if (dappId == null) {
 			resp.setResp(ResponseEnum.BAD_PARAM);
 			resp.setMessage("参数错误");
@@ -227,11 +251,20 @@ public class DappController extends BaseController {
 			resp.setMessage("dapp不存在");
 			return resp;
 		}
+
+		if (loginUser.getUserType() == MemberTypeEnum.DEVELOPER.getType()) {
+			if (!loginUser.getMemberId().equals(dapp.getCreatorId())) {
+				resp.setResp(ResponseEnum.BAD_PARAM);
+				resp.setMessage("不能操作其他开发者的dapp");
+				return resp;
+			}
+		}
+
 		Date now = new Date();
 		dapp.setUpdateTime(now);
 		try {
 			dappService.update(dapp);
-		}catch (Exception e){
+		} catch (Exception e) {
 			logger.error("add dapp fail", e);
 		}
 		resp.setResp(ResponseEnum.SUCCESS);
@@ -247,6 +280,16 @@ public class DappController extends BaseController {
 				request.getSession().getServletContext());
 		// 检查form中是否有enctype="multipart/form-data"
 		String resourceUrl = "";
+		Member loginUser = getLoginMember(request);
+		if (loginUser == null) {
+			resp.setResp(ResponseEnum.NOT_LOGIN);
+			return resp;
+		}
+
+		if (loginUser.getUserType() == MemberTypeEnum.PROVIDER.getType()) {
+			resp.setResp(ResponseEnum.NO_RIGHTS);
+			return resp;
+		}
 		if (multipartResolver.isMultipart(request)) {
 			// 将request变成多部分request
 			MultipartHttpServletRequest multiRequest = (MultipartHttpServletRequest) request;
@@ -265,16 +308,16 @@ public class DappController extends BaseController {
 					resp.setMessage("获取文件md5失败");
 					return resp;
 				}
-				
+
 				String originalName = multipartFile.getOriginalFilename();
 				String extension = originalName.substring(originalName.lastIndexOf('.'));
 				File destDir = null;
-				if (originalName.endsWith(".zip")){
+				if (originalName.endsWith(".zip")) {
 					destDir = new File(uploadPath, "zip");
 					resourceUrl = resourceUrl + "/zip";
-					
-				}else if (originalName.endsWith(".png") || originalName.endsWith(".jpg") 
-						|| originalName.endsWith(".jpeg")){
+
+				} else if (originalName.endsWith(".png") || originalName.endsWith(".jpg")
+						|| originalName.endsWith(".jpeg")) {
 					destDir = new File(uploadPath, "images");
 					resourceUrl = resourceUrl + "/images";
 				}
@@ -291,7 +334,100 @@ public class DappController extends BaseController {
 		resp.setResp(ResponseEnum.SUCCESS);
 		return resp;
 	}
-	
+
+	@RequestMapping("/uploadDapp.do")
+	@ResponseBody
+	public BaseResponse uploadDapp(HttpServletRequest request, MultipartFile files) {
+		BaseResponse resp = new BaseResponse();
+
+		Member loginUser = getLoginMember(request);
+		if (loginUser == null) {
+			resp.setResp(ResponseEnum.NOT_LOGIN);
+			return resp;
+		}
+
+		if (loginUser.getUserType() == MemberTypeEnum.PROVIDER.getType()) {
+			resp.setResp(ResponseEnum.NO_RIGHTS);
+			return resp;
+		}
+		
+		String account = loginUser.getAccount();
+		
+		CommonsMultipartResolver multipartResolver = new CommonsMultipartResolver(
+				request.getSession().getServletContext());
+		// 检查form中是否有enctype="multipart/form-data"
+		String resourceUrl = "";
+		if (multipartResolver.isMultipart(request)) {
+			// 将request变成多部分request
+			MultipartHttpServletRequest multiRequest = (MultipartHttpServletRequest) request;
+			// 获取multiRequest 中所有的文件名
+			Iterator<String> iterator = multiRequest.getFileNames();
+			String md5 = null;
+			while (iterator.hasNext()) {
+				MultipartFile multipartFile = multiRequest.getFile(iterator.next().toString());
+				String originalName = multipartFile.getOriginalFilename();
+				String extension = originalName.substring(originalName.lastIndexOf('.'));
+				if (!originalName.endsWith(".zip")) {
+					resp.setCode(ResponseEnum.BAD_PARAM.getCode());
+					resp.setMessage("dapp包必须为zip文件");
+					return resp;
+				}
+				try {
+					InputStream inputStream = multipartFile.getInputStream();
+					md5 = DigestUtils.md5Hex(inputStream);
+					inputStream.close();
+				} catch (Exception e) {
+					logger.error("upload get file md5 fail", e);
+					resp.setCode(ResponseEnum.LOGIC_ERROR.getCode());
+					resp.setMessage("获取文件md5失败");
+					return resp;
+				}
+				File destDir = null;
+				File dupDir = null;
+				if (originalName.endsWith(".zip")) {
+					destDir = new File(uploadPath, account);
+					resourceUrl = resourceUrl + "/" + account;
+					dupDir = new File(uploadPath, "dapp");
+				}
+				destDir.mkdirs();
+				dupDir.mkdir();
+				
+				File dupFile = new File(dupDir, md5 + extension);
+				String dupPath = dupFile.getAbsolutePath();
+				if (!dupFile.exists()){
+					
+					saveFile(multipartFile, dupPath);
+					try {
+						Dapp dapp = readZipFile(dupPath);
+						if (dapp == null) {
+							logger.error("zip is not a valid dapp file");
+							resp.setCode(ResponseEnum.LOGIC_ERROR.getCode());
+							resp.setMessage("zip文件不是一个有效的dapp 文件");
+							dupFile.delete();
+							return resp;
+						}
+					}catch (Exception e){
+						logger.error("read dapp zip file fail", e);
+						resp.setCode(ResponseEnum.LOGIC_ERROR.getCode());
+						resp.setMessage("读取dapp zip 文件失败");
+						dupFile.delete();
+						return resp;
+					}
+				}else {
+					logger.info("file already exists, file: {}", dupPath);
+				}
+				
+				File destFile = new File(destDir, originalName);				
+				saveFile(multipartFile, destFile.getAbsolutePath());
+				resourceUrl = resourceUrl + "/" + originalName;
+				break;
+			}
+		}
+		resp.setData(linkPrefix + resourceUrl);
+		resp.setResp(ResponseEnum.SUCCESS);
+		return resp;
+	}
+
 	@RequestMapping("/install.do")
 	@ResponseBody
 	public BaseResponse install(HttpServletRequest req, Integer dappId) {
@@ -311,26 +447,25 @@ public class DappController extends BaseController {
 			resp.setMessage("Dapp不存在");
 			return resp;
 		}
-		if (!dapp.getCreatorId().equals(member.getMemberId()) ) {
+		if (!dapp.getCreatorId().equals(member.getMemberId())) {
 			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-		    resp.setMessage("不能操作他人的dapp");
+			resp.setMessage("不能操作他人的dapp");
 			return resp;
 		}
-		if (dapp.getState() != DappStateEnum.REGISTERED.getType() &&
-				dapp.getState() != DappStateEnum.REMOVED.getType()) {
+		if (dapp.getState() != DappStateEnum.REGISTERED.getType()
+				&& dapp.getState() != DappStateEnum.REMOVED.getType()) {
 			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-		    resp.setMessage("只有注册的或已经移除的dapp 才能安装");
+			resp.setMessage("只有注册的或已经移除的dapp 才能安装");
 			return resp;
 		}
-		
+
 		EtmResult result = dappHttpApi.install(dapp.getTransactionId());
 		if (!result.isSuccessful()) {
 			resp.setCode(ResponseEnum.LOGIC_ERROR.getCode());
-		    resp.setMessage(result.getError());
+			resp.setMessage(result.getError());
 			return resp;
-		}else {
+		} else {
 			JSONObject json = new JSONObject(result.getRawJson());
-
 			dapp.setState(DappStateEnum.INSTALLED.getType());
 			dapp.setUpdateTime(new Date());
 			dappService.update(dapp);
@@ -338,7 +473,7 @@ public class DappController extends BaseController {
 		resp.setResp(ResponseEnum.SUCCESS);
 		return resp;
 	}
-	
+
 	@RequestMapping("/launch.do")
 	@ResponseBody
 	public BaseResponse launch(HttpServletRequest req, Integer dappId) {
@@ -358,24 +493,23 @@ public class DappController extends BaseController {
 			resp.setMessage("Dapp不存在");
 			return resp;
 		}
-		if (!dapp.getCreatorId().equals(member.getMemberId()) ) {
+		if (!dapp.getCreatorId().equals(member.getMemberId())) {
 			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-		    resp.setMessage("不能操作他人的dapp");
+			resp.setMessage("不能操作他人的dapp");
 			return resp;
 		}
-		if (dapp.getState() != DappStateEnum.INSTALLED.getType() &&
-				dapp.getState() != DappStateEnum.STOPED.getType()) {
+		if (dapp.getState() != DappStateEnum.INSTALLED.getType() && dapp.getState() != DappStateEnum.STOPED.getType()) {
 			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-		    resp.setMessage("只有注册的dapp或者已经停止的应用才能启动");
+			resp.setMessage("只有注册的dapp或者已经停止的应用才能启动");
 			return resp;
 		}
-		
+
 		EtmResult result = dappHttpApi.launch(dapp.getTransactionId());
 		if (!result.isSuccessful()) {
 			resp.setCode(ResponseEnum.LOGIC_ERROR.getCode());
-		    resp.setMessage(result.getError());
+			resp.setMessage(result.getError());
 			return resp;
-		}else {
+		} else {
 			JSONObject json = new JSONObject(result.getRawJson());
 
 			dapp.setState(DappStateEnum.LAUNCHED.getType());
@@ -385,7 +519,7 @@ public class DappController extends BaseController {
 		resp.setResp(ResponseEnum.SUCCESS);
 		return resp;
 	}
-	
+
 	@RequestMapping("/uninstall.do")
 	@ResponseBody
 	public BaseResponse uninstall(HttpServletRequest req, Integer dappId) {
@@ -405,24 +539,24 @@ public class DappController extends BaseController {
 			resp.setMessage("Dapp不存在");
 			return resp;
 		}
-		if (!dapp.getCreatorId().equals(member.getMemberId()) ) {
+		if (!dapp.getCreatorId().equals(member.getMemberId())) {
 			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-		    resp.setMessage("不能操作他人的dapp");
+			resp.setMessage("不能操作他人的dapp");
 			return resp;
 		}
-		if (dapp.getState() != DappStateEnum.INSTALLED.getType() &&
-				dapp.getState() != DappStateEnum.LAUNCHED.getType()) {
+		if (dapp.getState() != DappStateEnum.INSTALLED.getType()
+				&& dapp.getState() != DappStateEnum.LAUNCHED.getType()) {
 			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-		    resp.setMessage("只有已安装或启动的dapp才能启动");
+			resp.setMessage("只有已安装或启动的dapp才能启动");
 			return resp;
 		}
-		
+
 		EtmResult result = dappHttpApi.uninstall(dapp.getTransactionId());
 		if (!result.isSuccessful()) {
 			resp.setCode(ResponseEnum.LOGIC_ERROR.getCode());
-		    resp.setMessage(result.getError());
+			resp.setMessage(result.getError());
 			return resp;
-		}else {
+		} else {
 			JSONObject json = new JSONObject(result.getRawJson());
 
 			dapp.setState(DappStateEnum.LAUNCHED.getType());
@@ -432,7 +566,7 @@ public class DappController extends BaseController {
 		resp.setResp(ResponseEnum.SUCCESS);
 		return resp;
 	}
-	
+
 	@RequestMapping("/stop.do")
 	@ResponseBody
 	public BaseResponse stop(HttpServletRequest req, Integer dappId) {
@@ -452,23 +586,23 @@ public class DappController extends BaseController {
 			resp.setMessage("Dapp不存在");
 			return resp;
 		}
-		if (!dapp.getCreatorId().equals(member.getMemberId()) ) {
+		if (!dapp.getCreatorId().equals(member.getMemberId())) {
 			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-		    resp.setMessage("不能操作他人的dapp");
+			resp.setMessage("不能操作他人的dapp");
 			return resp;
 		}
 		if (dapp.getState() != DappStateEnum.LAUNCHED.getType()) {
 			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-		    resp.setMessage("只有已启动的应用才能启动");
+			resp.setMessage("只有已启动的应用才能启动");
 			return resp;
 		}
-		
+
 		EtmResult result = dappHttpApi.launch(dapp.getTransactionId());
 		if (!result.isSuccessful()) {
 			resp.setCode(ResponseEnum.LOGIC_ERROR.getCode());
-		    resp.setMessage(result.getError());
+			resp.setMessage(result.getError());
 			return resp;
-		}else {
+		} else {
 			JSONObject json = new JSONObject(result.getRawJson());
 
 			dapp.setState(DappStateEnum.LAUNCHED.getType());
@@ -478,7 +612,7 @@ public class DappController extends BaseController {
 		resp.setResp(ResponseEnum.SUCCESS);
 		return resp;
 	}
-	
+
 	@RequestMapping("/updateState.do")
 	@ResponseBody
 	public BaseResponse updateState(HttpServletRequest req, Integer dappId, Integer state) {
@@ -488,28 +622,27 @@ public class DappController extends BaseController {
 			resp.setResp(ResponseEnum.NOT_LOGIN);
 			return resp;
 		}
-//		if (member.getUserType() != MemberTypeEnum.DEVELOPER.getType()) {
-//			resp.setResp(ResponseEnum.NO_RIGHTS);
-//			return resp;
-//		}
+		// if (member.getUserType() != MemberTypeEnum.DEVELOPER.getType()) {
+		// resp.setResp(ResponseEnum.NO_RIGHTS);
+		// return resp;
+		// }
 		Dapp dapp = dappService.getDappByPrimaryKey(dappId);
 		if (dapp == null) {
 			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
 			resp.setMessage("Dapp不存在");
 			return resp;
 		}
-//		if (!dapp.getCreatorId().equals(member.getMemberId()) ) {
-//			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-//		    resp.setMessage("不能操作他人的dapp");
-//			return resp;
-//		}
+		// if (!dapp.getCreatorId().equals(member.getMemberId()) ) {
+		// resp.setCode(ResponseEnum.BAD_PARAM.getCode());
+		// resp.setMessage("不能操作他人的dapp");
+		// return resp;
+		// }
 		DappStateEnum currentState = DappStateEnum.getByType(dapp.getState());
-		
+
 		DappStateEnum stateEnum = DappStateEnum.getByType(state);
-		if (stateEnum == null || stateEnum == DappStateEnum.CREATED ||
-				stateEnum == DappStateEnum.REGISTERED){
+		if (stateEnum == null || stateEnum == DappStateEnum.CREATED || stateEnum == DappStateEnum.REGISTERED) {
 			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-		    resp.setMessage("state参数错误");
+			resp.setMessage("state参数错误");
 			return resp;
 		}
 		if (currentState == stateEnum) {
@@ -518,54 +651,51 @@ public class DappController extends BaseController {
 		}
 		EtmResult result = null;
 		selectRandomNode();
-		switch (stateEnum){
-		  case INSTALLED: {
-			if (currentState != DappStateEnum.REGISTERED &&
-					currentState != DappStateEnum.REMOVED){
+		switch (stateEnum) {
+		case INSTALLED: {
+			if (currentState != DappStateEnum.REGISTERED && currentState != DappStateEnum.REMOVED) {
 				resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-			    resp.setMessage("只有已注册的或已经移除的dapp才能安装");
+				resp.setMessage("只有已注册的或已经移除的dapp才能安装");
 				return resp;
 			}
 			result = dappHttpApi.install(dapp.getTransactionId());
 			break;
-		  }
-		  case LAUNCHED: {
-			if (currentState != DappStateEnum.INSTALLED &&
-					currentState != DappStateEnum.STOPED){
+		}
+		case LAUNCHED: {
+			if (currentState != DappStateEnum.INSTALLED && currentState != DappStateEnum.STOPED) {
 				resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-			    resp.setMessage("只有已安装或已经停止的dapp才能启动");
+				resp.setMessage("只有已安装或已经停止的dapp才能启动");
 				return resp;
 			}
 			result = dappHttpApi.launch(dapp.getTransactionId());
 			break;
-		  }
-		  case STOPED: {
-				if (currentState != DappStateEnum.LAUNCHED){
-					resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-				    resp.setMessage("只有已启动的dapp才能停止");
-					return resp;
-				}
-				result = dappHttpApi.stop(dapp.getTransactionId());
-				break;
-			  }
-		  case REMOVED: {
-				if (currentState != DappStateEnum.INSTALLED &&
-						currentState != DappStateEnum.LAUNCHED &&
-						currentState != DappStateEnum.STOPED){
-					resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-				    resp.setMessage("只有已启动或已经停止的dapp才能卸载");
-					return resp;
-				}
-				result = dappHttpApi.uninstall(dapp.getTransactionId());
-				break;
-			  }
 		}
-		
+		case STOPED: {
+			if (currentState != DappStateEnum.LAUNCHED) {
+				resp.setCode(ResponseEnum.BAD_PARAM.getCode());
+				resp.setMessage("只有已启动的dapp才能停止");
+				return resp;
+			}
+			result = dappHttpApi.stop(dapp.getTransactionId());
+			break;
+		}
+		case REMOVED: {
+			if (currentState != DappStateEnum.INSTALLED && currentState != DappStateEnum.LAUNCHED
+					&& currentState != DappStateEnum.STOPED) {
+				resp.setCode(ResponseEnum.BAD_PARAM.getCode());
+				resp.setMessage("只有已启动或已经停止的dapp才能卸载");
+				return resp;
+			}
+			result = dappHttpApi.uninstall(dapp.getTransactionId());
+			break;
+		}
+		}
+
 		if (!result.isSuccessful()) {
 			resp.setCode(ResponseEnum.LOGIC_ERROR.getCode());
-		    resp.setMessage(result.getError());
+			resp.setMessage(result.getError());
 			return resp;
-		}else {
+		} else {
 			JSONObject json = new JSONObject(result.getRawJson());
 
 			dapp.setState(state);
@@ -575,46 +705,46 @@ public class DappController extends BaseController {
 		resp.setResp(ResponseEnum.SUCCESS);
 		return resp;
 	}
-	
+
 	@RequestMapping("/register.do")
 	@ResponseBody
-	public BaseResponse register(HttpServletRequest req, String secret,
-			String secondSecret, Integer dappId) {
+	public BaseResponse register(HttpServletRequest req, String secret, String secondSecret, Integer dappId) {
 		BaseResponse resp = new BaseResponse();
 		if (StringUtils.isEmpty(secret) || dappId == null || dappId <= 0) {
 			resp.setResp(ResponseEnum.BAD_PARAM);
 			return resp;
 		}
-		
+
 		Member member = this.getLoginMember(req);
 		if (member == null) {
 			resp.setResp(ResponseEnum.NOT_LOGIN);
 			return resp;
 		}
-//		if (member.getUserType() != MemberTypeEnum.DEVELOPER.getType()) {
-//			resp.setResp(ResponseEnum.NO_RIGHTS);
-//			return resp;
-//		}
+		// if (member.getUserType() != MemberTypeEnum.DEVELOPER.getType()) {
+		// resp.setResp(ResponseEnum.NO_RIGHTS);
+		// return resp;
+		// }
 		Dapp dapp = dappService.getDappByPrimaryKey(dappId);
 		if (dapp == null) {
 			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
 			resp.setMessage("Dapp不存在");
 			return resp;
 		}
-//		if (!dapp.getCreatorId().equals(member.getMemberId()) ) {
-//			resp.setCode(ResponseEnum.BAD_PARAM.getCode());
-//		    resp.setMessage("不能操作他人的dapp");
-//			return resp;
-//		}
+		// if (!dapp.getCreatorId().equals(member.getMemberId()) ) {
+		// resp.setCode(ResponseEnum.BAD_PARAM.getCode());
+		// resp.setMessage("不能操作他人的dapp");
+		// return resp;
+		// }
 		selectRandomNode();
 		EtmResult result = dappHttpApi.register(dapp, secret, secondSecret);
 		if (!result.isSuccessful()) {
 			resp.setCode(ResponseEnum.LOGIC_ERROR.getCode());
-		    resp.setMessage(result.getError());
+			resp.setMessage(result.getError());
 			return resp;
-		}else {
+		} else {
 			JSONObject json = new JSONObject(result.getRawJson());
-			//success:true, error:null, exception:null rawJson:{"success":true,"transaction":{"type":5,"amount":0,"senderPublicKey":"fd6df6dc35852ac7edcc081eb5195718e0c77a6ad4f8157eeb78c865fa83efc4","requesterPublicKey":null,"timestamp":67416642,"asset":{"dapp":{"category":1,"name":"cctime3","description":"news","tags":"news","type":0,"link":"http://116.211.100.207/dapp/upload/zip/e11e06cbab9d67572ed9bbd8848a6caa.zip","icon":"http://116.211.100.207/dapp/upload/images/897c565e4e14453dcc3379f74a5fca26.png","delegates":["db18d5799944030f76b6ce0879b1ca4b0c2c1cee51f53ce9b43f78259950c2fd","590e28d2964b0aa4d7c7b98faee4676d467606c6761f7f41f99c52bb4813b5e4","bfe511158d674c3a1e21111223a49770bee93611d998e88a5d2ea3145de2b68b","7bbf62931cf3c596591a580212631aff51d6bc0577c54769953caadb23f6ab00","452df9213aedb3b9fed6db3e2ea9f49d3db226e2dac01828bc3dcd73b7a953b4"],"unlockDelegates":3}},"recipientId":null,"signature":"8b29da99d4bde9dbcde41b869e878e1f6890485373cd67e551fe793f770e8d86464e74c9dc42cfa6c7ad55662ba476567818be91587132a77b6a1148f87f7704","id":"bfa7db447779a4132e52f705fd5a2e818b6201b9fbc44a5dac4fb73018a3c1e4","fee":10000000000,"senderId":"7286541193277597873"}}
+			// success:true, error:null, exception:null
+			// rawJson:{"success":true,"transaction":{"type":5,"amount":0,"senderPublicKey":"fd6df6dc35852ac7edcc081eb5195718e0c77a6ad4f8157eeb78c865fa83efc4","requesterPublicKey":null,"timestamp":67416642,"asset":{"dapp":{"category":1,"name":"cctime3","description":"news","tags":"news","type":0,"link":"http://116.211.100.207/dapp/upload/zip/e11e06cbab9d67572ed9bbd8848a6caa.zip","icon":"http://116.211.100.207/dapp/upload/images/897c565e4e14453dcc3379f74a5fca26.png","delegates":["db18d5799944030f76b6ce0879b1ca4b0c2c1cee51f53ce9b43f78259950c2fd","590e28d2964b0aa4d7c7b98faee4676d467606c6761f7f41f99c52bb4813b5e4","bfe511158d674c3a1e21111223a49770bee93611d998e88a5d2ea3145de2b68b","7bbf62931cf3c596591a580212631aff51d6bc0577c54769953caadb23f6ab00","452df9213aedb3b9fed6db3e2ea9f49d3db226e2dac01828bc3dcd73b7a953b4"],"unlockDelegates":3}},"recipientId":null,"signature":"8b29da99d4bde9dbcde41b869e878e1f6890485373cd67e551fe793f770e8d86464e74c9dc42cfa6c7ad55662ba476567818be91587132a77b6a1148f87f7704","id":"bfa7db447779a4132e52f705fd5a2e818b6201b9fbc44a5dac4fb73018a3c1e4","fee":10000000000,"senderId":"7286541193277597873"}}
 			String transactionId = json.getJSONObject("transaction").getString("id");
 			dapp.setTransactionId(transactionId);
 			dapp.setState(DappStateEnum.REGISTERED.getType());
@@ -624,10 +754,10 @@ public class DappController extends BaseController {
 		resp.setResp(ResponseEnum.SUCCESS);
 		return resp;
 	}
-	
-	private void selectRandomNode(){
+
+	private void selectRandomNode() {
 		List<EtmNode> nodeList = etmNodeService.getRandomUsableNode(1);
-		if (nodeList.isEmpty()){
+		if (nodeList.isEmpty()) {
 			return;
 		}
 		EtmNode node = nodeList.get(0);
@@ -635,8 +765,6 @@ public class DappController extends BaseController {
 		dappHttpApi.setHost(host);
 		dappHttpApi.setMasterPassword(node.getMasterPassword());
 	}
-	
-	
 
 	@RequestMapping("/uploadByFile.do")
 	@ResponseBody
@@ -715,12 +843,24 @@ public class DappController extends BaseController {
 		ZipEntry ze;
 		Dapp dapp = null;
 		String secrets = null;
+		// String requiredFiles[] = {"config.json", "dapp.json", "init.js"};
+		List<String> cList = Arrays.asList("config.json", "dapp.json", "init.js");
+		List<String> fileList = new ArrayList<String>(cList);
+		cList = Arrays.asList("contract/", "interface/", "model/");
+		List<String> dirList = new ArrayList<String>(cList);
 		while ((ze = zin.getNextEntry()) != null) {
 			String name = ze.getName();
-
+			// System.out.println(name);
 			if (ze.isDirectory()) {
-
+				int idx = dirList.indexOf(name);
+				if (idx >= 0) {
+					dirList.remove(idx);
+				}
 			} else {
+				int idx = fileList.indexOf(name);
+				if (idx >= 0) {
+					fileList.remove(idx);
+				}
 				if (name.equals("config.json") || name.equals("dapp.json")) {
 					long size = ze.getSize();
 					StringBuffer buffer = new StringBuffer();
@@ -732,7 +872,13 @@ public class DappController extends BaseController {
 						}
 						br.close();
 					}
-					JSONObject json = new JSONObject(buffer.toString());
+					JSONObject json = null;
+					try {
+						new JSONObject(buffer.toString());
+					} catch (Exception e) {
+						logger.error("not a valid json file, file:{}, name:{}", file, name, e);
+						return null;
+					}
 					if (name.equals("dapp.json")) {
 						dapp = new Dapp();
 						dapp.parseFromJson(json);
@@ -748,6 +894,14 @@ public class DappController extends BaseController {
 		zin.close();
 		in.close();
 		zf.close();
+		if (!fileList.isEmpty()) {
+			logger.error("Missing required file: " + fileList + ", file: " + file);
+			return null;
+		}
+		if (!dirList.isEmpty()) {
+			logger.error("Missing required directory: " + dirList + ", file: " + file);
+			return null;
+		}
 		if (dapp != null) {
 			dapp.setSecrets(secrets);
 		}
@@ -758,5 +912,11 @@ public class DappController extends BaseController {
 	@ResponseBody
 	public BaseResponse uploadWithDetail() {
 		return null;
+	}
+
+	public static void main(String[] args) throws Exception {
+		String file = "E:\\work\\etm\\cctime.zip";
+		Dapp dapp = readZipFile(file);
+		System.out.println();
 	}
 }
