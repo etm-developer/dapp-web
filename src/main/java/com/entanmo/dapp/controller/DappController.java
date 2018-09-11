@@ -886,7 +886,7 @@ public class DappController extends BaseController {
 					fileList.remove(idx);
 				}
 				if (name.equals("config.json") || name.equals("dapp.json")) {
-					long size = ze.getSize();
+					long size = zf.size();
 					StringBuffer buffer = new StringBuffer();
 					if (size > 0) {
 						BufferedReader br = new BufferedReader(new InputStreamReader(zf.getInputStream(ze)));
