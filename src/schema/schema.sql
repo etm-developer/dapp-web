@@ -9,6 +9,7 @@ CREATE TABLE member(
 	phone VARCHAR(32),
 	email VARCHAR(32),
 	userType TINYINT DEFAULT 0 COMMENT '',
+        state tinyint default 1,
 	createTime DATETIME,
 	lastLogin DATETIME
 ) ENGINE INNODB DEFAULT CHARSET 'utf8';
@@ -35,6 +36,8 @@ CREATE TABLE dapp(
 	category TINYINT,
 	description VARCHAR(256),
 	link VARCHAR(256),
+        icon varchar(256),
+        tags varchar(256),
 	delegates VARCHAR(1024),
 	secrets VARCHAR(1024),
 	unlockDelegates INT,
@@ -52,3 +55,5 @@ CREATE TABLE dapp_deploy(
 	state INT,
 	createTime DATETIME
 )ENGINE INNODB DEFAULT CHARSET 'utf8';
+insert into member(account, `password`, `userType`, createTime) values('admin', '21232F297A57A5A743894A0E4A801FC3',3, now());
+insert into member(account, `password`, `userType`, createTime) values('admin001', '21232F297A57A5A743894A0E4A801FC3',3, now());
